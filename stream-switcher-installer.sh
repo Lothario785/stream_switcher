@@ -23,7 +23,7 @@ source /etc/stream-switcher.conf
 
 # Start an infinite loop
 while true; do
-  mpv --no-audio --quiet --loop-playlist --playlist-items=2 --length=$SLEEP_TIME "$STREAM1_URL" "$STREAM2_URL"
+  mpv --no-audio --quiet --no-terminal --loop-playlist --playlist-items=2 --length=$SLEEP_TIME "$STREAM1_URL" "$STREAM2_URL"
 done
 EOF
 
