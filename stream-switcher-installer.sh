@@ -23,18 +23,7 @@ source /etc/stream-switcher.conf
 
 # Start an infinite loop
 while true; do
-  # Start playing the first stream
-  mpv --no-video "$STREAM1_URL" &
-  # Wait for the specified sleep time
-  sleep "$SLEEP_TIME"
-  # Stop playing the first stream
-  pkill mpv
-  # Start playing the second stream
-  mpv --no-video "$STREAM2_URL" &
-  # Wait for the specified sleep time
-  sleep "$SLEEP_TIME"
-  # Stop playing the second stream
-  pkill mpv
+  mpv --no-audio --quiet --loop-playlist --playlist-items=2 --length=$SLEEP_TIME "$STREAM1_URL" "$STREAM2_URL"
 done
 EOF
 
