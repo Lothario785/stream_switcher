@@ -1,59 +1,54 @@
 #!/bin/bash
 
-# Prompt the user for the URLs of the RTSP streams
-read -p "Enter the URL for the first RTSP stream: " stream1
-read -p "Enter the URL for the second RTSP stream: " stream2
+# Install dependencies
+sudo apt-get update
+sudo apt-get install -y mpv screen
 
-# Prompt the user for the sleep time between stream switches
-read -p "Enter the time to sleep between switches (in seconds): " sleep_time
+# Get stream URLs and sleep time from user
+read -p "Enter URL for stream 1: " stream1_url
+read -p "Enter URL for stream 2: " stream2_url
+read -p "Enter sleep time (in seconds) between switches: " sleep_time
 
-# Create the stream switcher script
-cat <<EOF >stream-switcher.sh
+# Create stream-switcher.conf file with user input
+echo "STREAM1_URL=\"$stream1_url\"" | sudo tee /etc/stream-switcher.conf
+echo "STREAM2_URL=\"$stream2_url\"" | sudo tee -a /etc/stream-switcher.conf
+echo "SLEEP_TIME=$sleep_time" | sudo tee -a /etc/stream-switcher.conf
+
+# Create stream-switcher.sh script
+sudo tee /usr/local/bin/stream-switcher.sh > /dev/null <<EOF
 #!/bin/bash
 
-# Define the RTSP streams
-stream1="$stream1"
-stream2="$stream2"
+# Load configuration from stream-switcher.conf
+source /etc/stream-switcher.conf
 
-# Define the screen session name
-session="stream-switcher"
-
-# Start the screen session
-screen -dmS \$session
-
-# Infinite loop to switch between the streams
+# Start an infinite loop
 while true; do
-  # Play the first stream in the screen session
-  screen -S \$session -X stuff "mpv \$stream1$(printf \\r)"
-
-  # Sleep for the specified time to allow the first stream to play
-  sleep $sleep_time
-
-  # Stop the first stream
-  screen -S \$session -X stuff "q$(printf \\r)"
-
-  # Play the second stream in the screen session
-  screen -S \$session -X stuff "mpv \$stream2$(printf \\r)"
-
-  # Sleep for the specified time to allow the second stream to play
-  sleep $sleep_time
-
-  # Stop the second stream
-  screen -S \$session -X stuff "q$(printf \\r)"
+  # Start playing the first stream
+  mpv --no-video "$STREAM1_URL" &
+  # Wait for the specified sleep time
+  sleep "$SLEEP_TIME"
+  # Stop playing the first stream
+  pkill mpv
+  # Start playing the second stream
+  mpv --no-video "$STREAM2_URL" &
+  # Wait for the specified sleep time
+  sleep "$SLEEP_TIME"
+  # Stop playing the second stream
+  pkill mpv
 done
 EOF
 
-# Make the stream switcher script executable
-chmod +x stream-switcher.sh
+# Make stream-switcher.sh executable
+sudo chmod +x /usr/local/bin/stream-switcher.sh
 
-# Create the systemd service file
-cat <<EOF >/etc/systemd/system/stream-switcher.service
+# Create stream-switcher.service file
+sudo tee /etc/systemd/system/stream-switcher.service > /dev/null <<EOF
 [Unit]
 Description=Stream Switcher
 After=network.target
 
 [Service]
-ExecStart=/bin/bash $(pwd)/stream-switcher.sh
+ExecStart=/usr/local/bin/stream-switcher.sh
 Restart=always
 User=pi
 
@@ -61,11 +56,19 @@ User=pi
 WantedBy=multi-user.target
 EOF
 
-# Reload systemd to pick up the new service
-systemctl daemon-reload
+# Reload systemd and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable stream-switcher.service
+sudo systemctl start stream-switcher.service
 
-# Start the stream switcher service and enable it to start on boot
-systemctl start stream-switcher.service
-systemctl enable stream-switcher.service
+echo "Installation complete. The stream switcher service is now running and will start automatically on boot."
 
-echo "Stream switcher setup complete!"
+# Allow the user to re-run the installation queries
+while true; do
+  read -p "Do you want to change the stream URLs or sleep time? [y/n] " yn
+  case $yn in
+    [Yy]* ) sudo nano /etc/stream-switcher.conf; break;;
+    [Nn]* ) exit;;
+    * ) echo "Please answer yes or no.";;
+  esac
+done
